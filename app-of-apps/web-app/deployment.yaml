@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontendapp
+  name: beta-frontend
   namespace: web-app
   labels:
-    app: frontendapp
+    app: beta-frontend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: frontendapp
+      app: beta-frontend
   template:
     metadata:
       labels:
-        app: frontendapp
+        app: beta-frontend
     spec:
       containers:
-      - name: frontendapp
-        image: europe-west1-docker.pkg.dev/appointy-global/common/frontendapp:v5:v5
+      - name: beta-frontend
+        image: europe-west1-docker.pkg.dev/appointy-global/common/beta-frontend:v8
         ports:
         - containerPort: 80
         resources:
@@ -27,3 +27,5 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
