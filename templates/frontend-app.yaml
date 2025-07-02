@@ -68,11 +68,9 @@ spec:
             - .docker/Dockerfile
         port:
           title: Application Port
-          type: integer
+          type: string
           description: Port on which the frontend application runs
           default: 3000
-          minimum: 1
-          maximum: 65535
           ui:help: 'Port number that your frontend application listens on'
           examples:
             - 3000
