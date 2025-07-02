@@ -61,10 +61,8 @@ jobs:
               project: ${{ steps.analyze.outputs.project_name }}
               managed-by: backstage-template
               created-by: backstage
-              created-at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             annotations:
               backstage.io/project-name: "${{ steps.analyze.outputs.project_name }}"
-              backstage.io/created-at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           spec: {}
           EOF
           
@@ -290,7 +288,7 @@ jobs:
           
           # Optionally sync the application immediately
           echo "Syncing ArgoCD Application..."
-          argocd app sync ${{ steps.analyze.outputs.project_name }} --grpc-web
+          # argocd app sync ${{ steps.analyze.outputs.project_name }} --grpc-web
           
           echo "✅ ArgoCD Application synced successfully"
 
