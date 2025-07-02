@@ -176,11 +176,11 @@ jobs:
         run: |
           echo "Creating Kubernetes configuration file..."
           
-          # Create temporary config file
-          CONFIG_FILE="k8s-config.env"
+          # Create config file in absolute path
+          CONFIG_FILE="$(pwd)/k8s-config.env"
           K8S_OUTPUT_PATH="app-of-apps/${{ steps.analyze.outputs.k8s_project }}"
           
-          cat > $CONFIG_FILE << EOF
+          cat > "$CONFIG_FILE" << EOF
           # Configuration file for Kubernetes YAML generator
           # Generated automatically by Frontend Application Build workflow
           
@@ -198,15 +198,15 @@ jobs:
           VS_NAME=${{ steps.analyze.outputs.app_name }}
           EOF
           
-          echo "Generated configuration file:"
-          cat $CONFIG_FILE
+          echo "Generated configuration file at: $CONFIG_FILE"
+          cat "$CONFIG_FILE"
           
           # Set outputs for next steps
           echo "config_file=$CONFIG_FILE" >> $GITHUB_OUTPUT
           echo "k8s_output_path=$K8S_OUTPUT_PATH" >> $GITHUB_OUTPUT
           echo "branch_name=feature/deploy-${{ steps.analyze.outputs.app_name }}-${{ github.run_number }}" >> $GITHUB_OUTPUT
           
-          echo "✅ Configuration file created"
+          echo "✅ Configuration file created at: $CONFIG_FILE"
 
       - name: Checkout IDP Demo Repository
         uses: actions/checkout@v4
@@ -223,14 +223,26 @@ jobs:
         run: |
           echo "Generating Kubernetes YAML files..."
           
+          # Show current working directory
+          echo "Current directory: $(pwd)"
+          echo "Config file location: ${{ steps.k8s-config.outputs.config_file }}"
+          
+          # Verify config file exists
+          if [ ! -f "${{ steps.k8s-config.outputs.config_file }}" ]; then
+            echo "Error: Config file not found at ${{ steps.k8s-config.outputs.config_file }}"
+            echo "Available files in current directory:"
+            ls -la
+            exit 1
+          fi
+          
           # Ensure the script is executable
           chmod +x scripts/generate-k8s-yamls.sh
           
           # Create output directory if it doesn't exist
           mkdir -p ${{ steps.k8s-config.outputs.k8s_output_path }}
           
-          # Run the script with config file and output path
-          echo "Running: ./scripts/generate-k8s-yamls.sh ${{ steps.k8s-config.outputs.config_file }} ${{ steps.k8s-config.outputs.k8s_output_path }}"
+          # Run the script with absolute paths
+          echo "Running: ./scripts/generate-k8s-yamls.sh \"${{ steps.k8s-config.outputs.config_file }}\" \"${{ steps.k8s-config.outputs.k8s_output_path }}\""
           ./scripts/generate-k8s-yamls.sh "${{ steps.k8s-config.outputs.config_file }}" "${{ steps.k8s-config.outputs.k8s_output_path }}"
           
           echo "✅ Kubernetes YAML files generated"
@@ -369,7 +381,6 @@ jobs:
               echo "PR URL: $PR_URL"
             fi
           fi
-
       - name: Summary
         run: |
           echo "=== Frontend Application Build Summary ==="
