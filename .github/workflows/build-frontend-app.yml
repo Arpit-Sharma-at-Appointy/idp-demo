@@ -171,13 +171,24 @@ jobs:
           
           echo "✅ Image verification completed"
 
+      - name: Checkout IDP Demo Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Generate Kubernetes Configuration File
         id: k8s-config
         run: |
           echo "Creating Kubernetes configuration file..."
           
-          # Create config file in absolute path
-          CONFIG_FILE="$(pwd)/k8s-config.env"
+          # Create config file in current directory (after checkout)
+          CONFIG_FILE="k8s-config.env"
           K8S_OUTPUT_PATH="app-of-apps/${{ steps.analyze.outputs.k8s_project }}"
           
           cat > "$CONFIG_FILE" << EOF
@@ -198,7 +209,7 @@ jobs:
           VS_NAME=${{ steps.analyze.outputs.app_name }}
           EOF
           
-          echo "Generated configuration file at: $CONFIG_FILE"
+          echo "Generated configuration file at: $(pwd)/$CONFIG_FILE"
           cat "$CONFIG_FILE"
           
           # Set outputs for next steps
@@ -206,18 +217,7 @@ jobs:
           echo "k8s_output_path=$K8S_OUTPUT_PATH" >> $GITHUB_OUTPUT
           echo "branch_name=feature/deploy-${{ steps.analyze.outputs.app_name }}-${{ github.run_number }}" >> $GITHUB_OUTPUT
           
-          echo "✅ Configuration file created at: $CONFIG_FILE"
-
-      - name: Checkout IDP Demo Repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT_TOKEN }}
-          fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "✅ Configuration file created"
 
       - name: Generate Kubernetes YAML Files
         run: |
