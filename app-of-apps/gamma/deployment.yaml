@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gamma-frontend
+  namespace: gamma
+  labels:
+    app: gamma-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gamma-frontend
+  template:
+    metadata:
+      labels:
+        app: gamma-frontend
+    spec:
+      containers:
+      - name: gamma-frontend
+        image: europe-west1-docker.pkg.dev/appointy-global/common/gamma-frontend:v9
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
