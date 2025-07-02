@@ -34,13 +34,6 @@ spec:
             - payment-gateway
 
   steps:
-    - id: generate-unique-id
-      name: Generate Unique Identifier
-      action: roadiehq:utils:json:yaml:parse
-      input:
-        data: |
-          unique_id: ${{ '' | now | date('X') }}
-
     - id: trigger-github-action
       name: Create Kubernetes Project
       action: github:actions:dispatch
@@ -50,7 +43,6 @@ spec:
         branchOrTagName: main
         workflowInputs:
           project_name: ${{ parameters.project_name }}
-          unique_id: ${{ steps.generate-unique-id.output.unique_id }}
 
   output:
     links:
@@ -58,18 +50,20 @@ spec:
         url: https://github.com/Arpit-Sharma-at-Appointy/idp-demo/actions
       - title: Repository
         url: https://github.com/Arpit-Sharma-at-Appointy/idp-demo
-      - title: ArgoCD Application
-        url: https://argocd.example.com/applications/${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}
+      - title: ArgoCD Applications
+        url: https://argocd.example.com/applications
     text:
       - title: Project Details
         content: |
-          Your Kubernetes project has been created successfully!
+          Your Kubernetes project creation has been initiated!
           
           **Project Name:** ${{ parameters.project_name }}
-          **Unique ID:** ${{ steps.generate-unique-id.output.unique_id }}
-          **Full Name:** ${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}
+          
+          A unique identifier will be generated during the workflow execution.
           
           The following resources will be created:
-          - ArgoCD Application: ${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}
-          - Kubernetes Namespace: ${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}
-          - Directory: app-of-apps/${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}/
+          - ArgoCD Application: ${{ parameters.project_name }}-<unique-id>
+          - Kubernetes Namespace: ${{ parameters.project_name }}-<unique-id>
+          - Directory: app-of-apps/${{ parameters.project_name }}-<unique-id>/
+          
+          Check the GitHub Actions tab to monitor the progress.

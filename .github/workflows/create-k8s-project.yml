@@ -7,10 +7,6 @@ on:
         description: 'Project Name'
         required: true
         type: string
-      unique_id:
-        description: 'Unique Identifier'
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -38,7 +34,10 @@ jobs:
         run: |
           echo "=== Analyzing Project Parameters ==="
           echo "Project Name: ${{ github.event.inputs.project_name }}"
-          echo "Unique ID: ${{ github.event.inputs.unique_id }}"
+          
+          # Generate unique ID using timestamp + random component
+          UNIQUE_ID=$(date +%s)-$(head -c 4 /dev/urandom | xxd -p)
+          echo "Generated Unique ID: $UNIQUE_ID"
           
           # Validate project name (Kubernetes namespace naming convention)
           if [[ ! "${{ github.event.inputs.project_name }}" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
@@ -49,21 +48,26 @@ jobs:
             exit 1
           fi
           
-          # Check length
-          if [ ${#${{ github.event.inputs.project_name }}} -gt 63 ]; then
-            echo "Error: Project name must be 63 characters or less"
+          # Check length (accounting for unique ID addition)
+          PROJECT_NAME_LENGTH=${#${{ github.event.inputs.project_name }}}
+          UNIQUE_ID_LENGTH=${#UNIQUE_ID}
+          TOTAL_LENGTH=$((PROJECT_NAME_LENGTH + UNIQUE_ID_LENGTH + 1)) # +1 for hyphen
+          
+          if [ $TOTAL_LENGTH -gt 63 ]; then
+            echo "Error: Project name too long. With unique ID, total length would be $TOTAL_LENGTH characters (max 63)"
+            echo "Please use a shorter project name (max $((63 - UNIQUE_ID_LENGTH - 1)) characters)"
             exit 1
           fi
           
           # Set outputs
           echo "project_name=${{ github.event.inputs.project_name }}" >> $GITHUB_OUTPUT
-          echo "unique_id=${{ github.event.inputs.unique_id }}" >> $GITHUB_OUTPUT
-          echo "full_name=${{ github.event.inputs.project_name }}-${{ github.event.inputs.unique_id }}" >> $GITHUB_OUTPUT
-          echo "branch_name=feature/create-project-${{ github.event.inputs.project_name }}-${{ github.event.inputs.unique_id }}" >> $GITHUB_OUTPUT
-          echo "project_path=app-of-apps/${{ github.event.inputs.project_name }}-${{ github.event.inputs.unique_id }}" >> $GITHUB_OUTPUT
+          echo "unique_id=$UNIQUE_ID" >> $GITHUB_OUTPUT
+          echo "full_name=${{ github.event.inputs.project_name }}-$UNIQUE_ID" >> $GITHUB_OUTPUT
+          echo "branch_name=feature/create-project-${{ github.event.inputs.project_name }}-$UNIQUE_ID" >> $GITHUB_OUTPUT
+          echo "project_path=app-of-apps/${{ github.event.inputs.project_name }}-$UNIQUE_ID" >> $GITHUB_OUTPUT
           
           echo "✅ Validation passed"
-          echo "Full project name: ${{ github.event.inputs.project_name }}-${{ github.event.inputs.unique_id }}"
+          echo "Full project name: ${{ github.event.inputs.project_name }}-$UNIQUE_ID"
 
       - name: Create Project Directory Structure
         run: |
