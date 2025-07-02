@@ -1,0 +1,77 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-deployment-template
+  title: Kubernetes Deployment Template
+  description: Create a Kubernetes deployment with customizable parameters
+  tags:
+    - kubernetes
+    - deployment
+    - recommended
+spec:
+  owner: platform-team
+  type: service
+  
+  parameters:
+    - title: Deployment Configuration
+      required:
+        - deployment_name
+        - image
+        - image_tag
+        - replica
+      properties:
+        deployment_name:
+          title: Deployment Name
+          type: string
+          description: Name of the Kubernetes deployment
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          ui:autofocus: true
+          ui:help: 'Must be a valid Kubernetes name (lowercase alphanumeric with hyphens)'
+        image:
+          title: Container Image
+          type: string
+          description: Docker image name (without tag)
+          default: nginx
+          examples:
+            - nginx
+            - redis
+            - postgres
+            - node
+        image_tag:
+          title: Image Tag
+          type: string
+          description: Docker image tag/version
+          default: latest
+          examples:
+            - latest
+            - v1.0.0
+            - stable
+            - alpine
+        replica:
+          title: Replica Count
+          type: integer
+          description: Number of pod replicas
+          default: 3
+          minimum: 1
+          maximum: 10
+
+  steps:
+    - id: trigger-github-action
+      name: Trigger GitHub Action
+      action: github:actions:dispatch
+      input:
+        workflowId: deploy-k8s.yml
+        repoUrl: github.com?repo=idp-demo&owner=Arpit-Sharma-at-Appointy
+        branchOrTagName: main
+        workflowInputs:
+          deployment_name: ${{ parameters.deployment_name }}
+          image: ${{ parameters.image }}
+          image_tag: ${{ parameters.image_tag }}
+          replica: ${{ parameters.replica | int }}
+
+  output:
+    links:
+      - title: View GitHub Action
+        url: https://github.com/Arpit-Sharma-at-Appointy/idp-demo/actions
+      - title: Repository
+        url: https://github.com/Arpit-Sharma-at-Appointy/idp-demo

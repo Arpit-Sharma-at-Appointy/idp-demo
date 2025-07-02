@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+spec:
+  destination:
+    namespace: default
+    server: https://kubernetes.default.svc
+  source:
+    path: ./app-of-apps
+    repoURL: git@github.com:Arpit-Sharma-at-Appointy/idp-demo.git
+    targetRevision: HEAD
+  sources: []
+  project: idp-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: false

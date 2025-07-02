@@ -1,0 +1,202 @@
+name: Deploy Kubernetes Application
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_name:
+        description: 'Deployment Name'
+        required: true
+        type: string
+      image:
+        description: 'Container Image'
+        required: true
+        type: string
+      image_tag:
+        description: 'Image Tag'
+        required: true
+        type: string
+      replica:
+        description: 'Replica Count'
+        required: true
+        type: string
+
+jobs:
+  analyze-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Analyze Backstage Template Fields
+        id: analyze
+        run: |
+          echo "=== Analyzing Backstage Template Fields ==="
+          echo "Deployment Name: ${{ github.event.inputs.deployment_name }}"
+          echo "Image: ${{ github.event.inputs.image }}"
+          echo "Image Tag: ${{ github.event.inputs.image_tag }}"
+          echo "Replica Count: ${{ github.event.inputs.replica }}"
+          
+          # Validate deployment name (Kubernetes naming convention)
+          if [[ ! "${{ github.event.inputs.deployment_name }}" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
+            echo "Error: Deployment name must follow Kubernetes naming convention"
+            exit 1
+          fi
+          
+          # Validate replica count is a positive integer
+          if ! [[ "${{ github.event.inputs.replica }}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Error: Replica count must be a positive integer"
+            exit 1
+          fi
+          
+          # Set outputs for use in subsequent steps
+          echo "deployment_name=${{ github.event.inputs.deployment_name }}" >> $GITHUB_OUTPUT
+          echo "image=${{ github.event.inputs.image }}" >> $GITHUB_OUTPUT
+          echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          echo "replica=${{ github.event.inputs.replica }}" >> $GITHUB_OUTPUT
+          echo "full_image=${{ github.event.inputs.image }}:${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+
+      - name: Create app-of-apps directory
+        run: |
+          mkdir -p app-of-apps
+
+      - name: Generate Kubernetes Deployment YAML
+        id: generate-yaml
+        run: |
+          cat > app-of-apps/deployment.yaml << EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ${{ steps.analyze.outputs.deployment_name }}
+            labels:
+              app: ${{ steps.analyze.outputs.deployment_name }}
+              managed-by: backstage-template
+              created-at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          spec:
+            replicas: ${{ steps.analyze.outputs.replica }}
+            selector:
+              matchLabels:
+                app: ${{ steps.analyze.outputs.deployment_name }}
+            template:
+              metadata:
+                labels:
+                  app: ${{ steps.analyze.outputs.deployment_name }}
+              spec:
+                containers:
+                - name: ${{ steps.analyze.outputs.deployment_name }}
+                  image: ${{ steps.analyze.outputs.full_image }}
+                  ports:
+                  - containerPort: 80
+                  resources:
+                    requests:
+                      memory: "64Mi"
+                      cpu: "250m"
+                    limits:
+                      memory: "128Mi"
+                      cpu: "500m"
+                  livenessProbe:
+                    httpGet:
+                      path: /
+                      port: 80
+                    initialDelaySeconds: 30
+                    periodSeconds: 10
+                  readinessProbe:
+                    httpGet:
+                      path: /
+                      port: 80
+                    initialDelaySeconds: 5
+                    periodSeconds: 5
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ${{ steps.analyze.outputs.deployment_name }}-service
+            labels:
+              app: ${{ steps.analyze.outputs.deployment_name }}
+          spec:
+            selector:
+              app: ${{ steps.analyze.outputs.deployment_name }}
+            ports:
+            - protocol: TCP
+              port: 80
+              targetPort: 80
+            type: ClusterIP
+          EOF
+          
+          echo "Generated deployment.yaml:"
+          cat app-of-apps/deployment.yaml
+
+      - name: Validate Generated YAML
+        run: |
+          # Install kubectl for YAML validation
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          
+          # Validate the YAML syntax
+          kubectl apply --dry-run=client -f app-of-apps/deployment.yaml
+          echo "✅ YAML validation passed"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            feat: add deployment for ${{ steps.analyze.outputs.deployment_name }}
+            
+            - Deployment name: ${{ steps.analyze.outputs.deployment_name }}
+            - Image: ${{ steps.analyze.outputs.full_image }}
+            - Replicas: ${{ steps.analyze.outputs.replica }}
+            - Generated by: Backstage Template
+          title: "🚀 Deploy ${{ steps.analyze.outputs.deployment_name }} to Kubernetes"
+          body: |
+            ## Deployment Summary
+            
+            This PR was automatically generated by the Backstage deployment template.
+            
+            ### Configuration Details:
+            - **Deployment Name:** `${{ steps.analyze.outputs.deployment_name }}`
+            - **Container Image:** `${{ steps.analyze.outputs.full_image }}`
+            - **Replica Count:** `${{ steps.analyze.outputs.replica }}`
+            - **Generated At:** `${{ github.run_id }}`
+            
+            ### Files Added:
+            - `app-of-apps/deployment.yaml` - Kubernetes Deployment and Service manifests
+            
+            ### What's Included:
+            - ✅ Kubernetes Deployment with specified replicas
+            - ✅ Kubernetes Service for internal communication
+            - ✅ Resource limits and requests
+            - ✅ Health checks (liveness and readiness probes)
+            - ✅ Proper labels and metadata
+            
+            ### Next Steps:
+            1. Review the generated YAML configuration
+            2. Approve and merge this PR
+            3. Apply the manifests to your Kubernetes cluster
+            
+            ---
+            
+            _This PR was created automatically by the Backstage deployment template workflow._
+          branch: feature/deploy-${{ steps.analyze.outputs.deployment_name }}-${{ github.run_number }}
+          delete-branch: true
+          draft: false
+          base: main
+
+      - name: Summary
+        run: |
+          echo "=== Deployment Summary ==="
+          echo "✅ Template fields analyzed successfully"
+          echo "✅ Kubernetes YAML generated and validated"
+          echo "✅ Pull request created successfully"
+          echo ""
+          echo "Deployment Details:"
+          echo "- Name: ${{ steps.analyze.outputs.deployment_name }}"
+          echo "- Image: ${{ steps.analyze.outputs.full_image }}"
+          echo "- Replicas: ${{ steps.analyze.outputs.replica }}"
+          echo "- Branch: feature/deploy-${{ steps.analyze.outputs.deployment_name }}-${{ github.run_number }}"
+          echo ""
+          echo "View the pull request at: https://github.com/${{ github.repository }}/pulls"
