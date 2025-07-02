@@ -381,6 +381,34 @@ jobs:
               echo "PR URL: $PR_URL"
             fi
           fi
+
+      - name: Create ArgoCD Application
+        env:
+          ARGOCD_USER: ${{ secrets.ARGOCD_USER }}
+          ARGOCD_PASS: ${{ secrets.ARGOCD_PASS }}
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+        run: |
+          echo "Logging into ArgoCD..."
+          
+          # Login to ArgoCD (assuming ArgoCD server URL is set via environment or default)
+          # You may need to adjust the server URL based on your setup
+          ARGOCD_SERVER="${ARGOCD_SERVER:-argocd.example.com}"
+          
+          argocd login $ARGOCD_SERVER \
+            --username $ARGOCD_USER \
+            --password $ARGOCD_PASS \
+            --grpc-web \
+            --insecure
+          
+          echo "✅ Logged into ArgoCD successfully"
+          
+          
+          echo "Syncing ArgoCD Application..."
+          argocd app sync ${{ steps.analyze.outputs.k8s_project }} --grpc-web
+
+          
+          echo "✅ ArgoCD Application synced successfully"
+
       - name: Summary
         run: |
           echo "=== Frontend Application Build Summary ==="
