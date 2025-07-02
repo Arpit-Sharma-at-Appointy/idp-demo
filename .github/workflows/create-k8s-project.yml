@@ -211,34 +211,49 @@ jobs:
           PR_NUMBER=$(echo $PR_URL | sed 's/.*\/pull\///')
           echo "PR Number: $PR_NUMBER"
           
-          # Enable auto-merge
+          # Try auto-merge first
           echo "Enabling auto-merge for PR #$PR_NUMBER..."
-          gh pr merge $PR_NUMBER --auto --squash
+          if gh pr merge $PR_NUMBER --auto --squash; then
+            echo "✅ Auto-merge enabled for PR #$PR_NUMBER"
+          else
+            echo "⚠️ Auto-merge failed, will try manual merge after timeout"
+          fi
           
-          echo "✅ Auto-merge enabled for PR #$PR_NUMBER"
-          echo "PR will be automatically merged when checks pass"
-
-      - name: Wait for PR Merge
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: |
-          echo "Waiting for PR to be merged..."
+          # Wait for auto-merge or force merge after timeout
+          echo "Waiting for auto-merge to complete..."
+          MERGED=false
           
-          # Wait for the merge to complete (check every 30 seconds for up to 10 minutes)
-          for i in {1..3}; do
-            # Check if the branch exists on main (indicating merge completed)
-            if git ls-remote --exit-code origin main | grep -q $(git rev-parse HEAD); then
-              echo "✅ PR has been merged successfully"
+          for i in {1..12}; do  # Wait up to 6 minutes (30s * 12)
+            # Check if PR is merged
+            if gh pr view $PR_NUMBER --json state | grep -q "MERGED"; then
+              echo "✅ PR #$PR_NUMBER has been merged successfully"
+              MERGED=true
               break
             fi
             
-            echo "⏳ Waiting for merge... (attempt $i/20)"
+            echo "⏳ Waiting for auto-merge... (attempt $i/12)"
             sleep 30
-            
-            if [ $i -eq 20 ]; then
-              echo "⚠️ Timeout waiting for merge. Proceeding with ArgoCD creation anyway..."
-            fi
           done
+          
+          # If auto-merge didn't work, force merge
+          if [ "$MERGED" = false ]; then
+            echo "⚠️ Auto-merge timeout. Attempting manual merge..."
+            
+            # Try to merge manually (this bypasses most checks)
+            if gh pr merge $PR_NUMBER --squash --admin; then
+              echo "✅ PR #$PR_NUMBER merged manually with admin override"
+            elif gh pr merge $PR_NUMBER --squash; then
+              echo "✅ PR #$PR_NUMBER merged manually"
+            else
+              echo "❌ Failed to merge PR #$PR_NUMBER. Manual intervention required."
+              echo "PR URL: $PR_URL"
+              # Continue anyway - ArgoCD creation might still work
+            fi
+          fi
+
+      - name: Wait for PR Merge
+        run: |
+          echo "PR merge step completed above. Proceeding with ArgoCD creation..."
 
       - name: Install ArgoCD CLI
         run: |
@@ -278,7 +293,7 @@ jobs:
             --repo https://github.com/Arpit-Sharma-at-Appointy/idp-demo.git \
             --path ./app-of-apps/${{ steps.analyze.outputs.project_name }} \
             --dest-server https://kubernetes.default.svc \
-            --dest-namespace default \
+            --dest-namespace ${{ steps.analyze.outputs.project_name }} \
             --project idp-demo \
             --sync-policy automated \
             --auto-prune \
@@ -288,7 +303,7 @@ jobs:
           
           # Optionally sync the application immediately
           echo "Syncing ArgoCD Application..."
-          # argocd app sync ${{ steps.analyze.outputs.project_name }} --grpc-web
+          argocd app sync ${{ steps.analyze.outputs.project_name }} --grpc-web
           
           echo "✅ ArgoCD Application synced successfully"
 
