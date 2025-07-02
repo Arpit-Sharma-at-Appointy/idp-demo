@@ -59,7 +59,7 @@ jobs:
       - name: Generate Kubernetes Deployment YAML
         id: generate-yaml
         run: |
-          cat > app-of-apps/deployment.yaml << EOF
+          cat > app-of-apps/${{ github.event.inputs.deployment_name }}-${{ github.run_number }} << EOF
           apiVersion: apps/v1
           kind: Deployment
           metadata:
@@ -121,7 +121,7 @@ jobs:
           
           echo "Generated deployment.yaml:"
           cat app-of-apps/deployment.yaml
-          
+
       - name: Create Pull Request
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
