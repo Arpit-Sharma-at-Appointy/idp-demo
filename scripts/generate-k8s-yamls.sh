@@ -119,7 +119,7 @@ spec:
   - match:
     - uri:
         prefix: /
-  - route:
+    route:
     - destination:
         host: $SERVICE_NAME
         port:
