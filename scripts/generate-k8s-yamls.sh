@@ -103,7 +103,7 @@ EOF
 
 # Generate virtualservice.yaml
 cat > "$OUTPUT_DIR/virtualservice.yaml" << EOF
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: $VS_NAME
