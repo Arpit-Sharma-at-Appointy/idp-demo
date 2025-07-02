@@ -1,0 +1,121 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: create-frontend-application
+  title: Create Frontend Application
+  description: Create a new frontend application with Docker image build and Kubernetes deployment
+  tags:
+    - frontend
+    - docker
+    - kubernetes
+    - deployment
+    - recommended
+spec:
+  owner: platform-team
+  type: service
+  
+  parameters:
+    - title: Application Configuration
+      required:
+        - app_name
+        - k8s_project
+        - git_url
+        - dockerfile_path
+        - port
+      properties:
+        app_name:
+          title: App Name
+          type: string
+          description: Name of the frontend application
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+          ui:help: 'Must follow Kubernetes naming convention: lowercase letters, numbers, and hyphens only. Cannot start or end with hyphen. Max 63 characters.'
+          examples:
+            - web-frontend
+            - user-dashboard
+            - admin-portal
+            - mobile-app
+        k8s_project:
+          title: Kubernetes Project
+          type: string
+          description: Target Kubernetes project/namespace for deployment
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          ui:help: 'Must be an existing Kubernetes project created via the Kubernetes Project template'
+          examples:
+            - user-service
+            - payment-gateway
+            - data-processing
+        git_url:
+          title: Git Repository URL
+          type: string
+          description: Git repository URL containing the frontend application source code
+          pattern: '^https://github\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+(?:\.git)?$'
+          ui:help: 'Must be a valid GitHub repository URL (HTTPS format)'
+          examples:
+            - https://github.com/company/frontend-app.git
+            - https://github.com/company/web-dashboard
+        dockerfile_path:
+          title: Dockerfile Path
+          type: string
+          description: Path to Dockerfile within the repository
+          default: Dockerfile
+          ui:help: 'Relative path from repository root to the Dockerfile'
+          examples:
+            - Dockerfile
+            - docker/Dockerfile
+            - frontend/Dockerfile
+            - .docker/Dockerfile
+        port:
+          title: Application Port
+          type: integer
+          description: Port on which the frontend application runs
+          default: 3000
+          minimum: 1
+          maximum: 65535
+          ui:help: 'Port number that your frontend application listens on'
+          examples:
+            - 3000
+            - 8080
+            - 80
+            - 5000
+
+  steps:
+    - id: trigger-github-action
+      name: Build Frontend Application
+      action: github:actions:dispatch
+      input:
+        workflowId: build-frontend-app.yml
+        repoUrl: github.com?repo=idp-demo&owner=Arpit-Sharma-at-Appointy
+        branchOrTagName: main
+        workflowInputs:
+          app_name: ${{ parameters.app_name }}
+          k8s_project: ${{ parameters.k8s_project }}
+          git_url: ${{ parameters.git_url }}
+          dockerfile_path: ${{ parameters.dockerfile_path }}
+          port: ${{ parameters.port }}
+
+  output:
+    links:
+      - title: View GitHub Action
+        url: https://github.com/Arpit-Sharma-at-Appointy/idp-demo/actions
+      - title: Repository
+        url: https://github.com/Arpit-Sharma-at-Appointy/idp-demo
+      - title: Google Artifact Registry
+        url: https://console.cloud.google.com/artifacts/docker/appointy-global/europe-west1/common
+    text:
+      - title: Application Details
+        content: |
+          Your frontend application build has been initiated!
+          
+          **Application Name:** ${{ parameters.app_name }}
+          **Kubernetes Project:** ${{ parameters.k8s_project }}
+          **Git Repository:** ${{ parameters.git_url }}
+          **Dockerfile Path:** ${{ parameters.dockerfile_path }}
+          **Application Port:** ${{ parameters.port }}
+          
+          The following will be created:
+          - Docker Image: europe-west1-docker.pkg.dev/appointy-global/common/${{ parameters.app_name }}
+          - Image Tag: v<build-number> (unique for each build)
+          
+          Check the GitHub Actions tab to monitor the build progress.

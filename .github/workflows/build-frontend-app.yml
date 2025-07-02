@@ -1,0 +1,194 @@
+name: Build Frontend Application
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: 'Application Name'
+        required: true
+        type: string
+      k8s_project:
+        description: 'Kubernetes Project'
+        required: true
+        type: string
+      git_url:
+        description: 'Git Repository URL'
+        required: true
+        type: string
+      dockerfile_path:
+        description: 'Dockerfile Path'
+        required: true
+        type: string
+        default: 'Dockerfile'
+      port:
+        description: 'Application Port'
+        required: true
+        type: number
+        default: 3000
+
+permissions:
+  contents: read
+  id-token: write  # Required for Google Cloud authentication
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Validate and Analyze Input Parameters
+        id: analyze
+        run: |
+          echo "=== Analyzing Frontend Application Parameters ==="
+          echo "App Name: ${{ github.event.inputs.app_name }}"
+          echo "Kubernetes Project: ${{ github.event.inputs.k8s_project }}"
+          echo "Git URL: ${{ github.event.inputs.git_url }}"
+          echo "Dockerfile Path: ${{ github.event.inputs.dockerfile_path }}"
+          echo "Port: ${{ github.event.inputs.port }}"
+          
+          # Validate app name (Kubernetes naming convention)
+          if [[ ! "${{ github.event.inputs.app_name }}" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
+            echo "Error: App name must follow Kubernetes naming convention"
+            echo "- Only lowercase letters, numbers, and hyphens"
+            echo "- Cannot start or end with hyphen"
+            echo "- Must be between 1-63 characters"
+            exit 1
+          fi
+          
+          # Validate k8s project name
+          if [[ ! "${{ github.event.inputs.k8s_project }}" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
+            echo "Error: Kubernetes project name must follow naming convention"
+            exit 1
+          fi
+          
+          # Validate Git URL format
+          if [[ ! "${{ github.event.inputs.git_url }}" =~ ^https://github\.com/ ]]; then
+            echo "Error: Git URL must be a valid GitHub HTTPS URL"
+            exit 1
+          fi
+          
+          # Validate port range
+          if (( ${{ github.event.inputs.port }} < 1 || ${{ github.event.inputs.port }} > 65535 )); then
+            echo "Error: Port must be between 1 and 65535"
+            exit 1
+          fi
+          
+          # Generate unique tag with build number
+          IMAGE_TAG="v${{ github.run_number }}"
+          IMAGE_NAME="europe-west1-docker.pkg.dev/appointy-global/common/${{ github.event.inputs.app_name }}"
+          FULL_IMAGE_NAME="${IMAGE_NAME}:${IMAGE_TAG}"
+          
+          # Set outputs
+          echo "app_name=${{ github.event.inputs.app_name }}" >> $GITHUB_OUTPUT
+          echo "k8s_project=${{ github.event.inputs.k8s_project }}" >> $GITHUB_OUTPUT
+          echo "git_url=${{ github.event.inputs.git_url }}" >> $GITHUB_OUTPUT
+          echo "dockerfile_path=${{ github.event.inputs.dockerfile_path }}" >> $GITHUB_OUTPUT
+          echo "port=${{ github.event.inputs.port }}" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+          echo "full_image_name=$FULL_IMAGE_NAME" >> $GITHUB_OUTPUT
+          
+          echo "✅ Validation passed"
+          echo "Image will be built as: $FULL_IMAGE_NAME"
+
+      - name: Checkout Application Source Code
+        run: |
+          echo "Cloning application repository..."
+          git clone ${{ steps.analyze.outputs.git_url }} ./app-source
+          cd ./app-source
+          
+          # Show repository info
+          echo "Repository cloned successfully:"
+          echo "- Repository: ${{ steps.analyze.outputs.git_url }}"
+          echo "- Latest commit: $(git rev-parse --short HEAD)"
+          echo "- Branch: $(git rev-parse --abbrev-ref HEAD)"
+          
+          # Verify Dockerfile exists
+          if [ ! -f "${{ steps.analyze.outputs.dockerfile_path }}" ]; then
+            echo "Error: Dockerfile not found at path: ${{ steps.analyze.outputs.dockerfile_path }}"
+            echo "Available files in repository root:"
+            ls -la
+            exit 1
+          fi
+          
+          echo "✅ Dockerfile found at: ${{ steps.analyze.outputs.dockerfile_path }}"
+
+      - name: Set up Google Cloud Authentication
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          echo "Configuring Docker for Google Artifact Registry..."
+          
+          # Configure Docker to use gcloud as credential helper
+          gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+          
+          echo "✅ Docker configured for Artifact Registry"
+
+      - name: Build Docker Image
+        run: |
+          echo "Building Docker image..."
+          cd ./app-source
+          
+          # Build the Docker image
+          docker build \
+            -f ${{ steps.analyze.outputs.dockerfile_path }} \
+            -t ${{ steps.analyze.outputs.full_image_name }} \
+            --build-arg PORT=${{ steps.analyze.outputs.port }} \
+            .
+          
+          echo "✅ Docker image built successfully"
+          echo "Image: ${{ steps.analyze.outputs.full_image_name }}"
+          
+          # Show image details
+          docker images | grep ${{ steps.analyze.outputs.app_name }}
+
+      - name: Push Docker Image to Artifact Registry
+        run: |
+          echo "Pushing Docker image to Google Artifact Registry..."
+          
+          docker push ${{ steps.analyze.outputs.full_image_name }}
+          
+          echo "✅ Docker image pushed successfully"
+          echo "Image available at: ${{ steps.analyze.outputs.full_image_name }}"
+
+      - name: Verify Image in Registry
+        run: |
+          echo "Verifying image in Artifact Registry..."
+          
+          # List images in the repository to verify push
+          gcloud artifacts docker images list \
+            europe-west1-docker.pkg.dev/appointy-global/common/${{ steps.analyze.outputs.app_name }} \
+            --limit=5 \
+            --sort-by=~CREATE_TIME
+          
+          echo "✅ Image verification completed"
+
+      - name: Summary
+        run: |
+          echo "=== Frontend Application Build Summary ==="
+          echo "✅ Application parameters validated"
+          echo "✅ Source code cloned from Git repository"
+          echo "✅ Google Cloud authentication configured"
+          echo "✅ Docker configured for Artifact Registry"
+          echo "✅ Docker image built successfully"
+          echo "✅ Docker image pushed to Artifact Registry"
+          echo "✅ Image verified in registry"
+          echo ""
+          echo "🎯 Application Details:"
+          echo "   App Name: ${{ steps.analyze.outputs.app_name }}"
+          echo "   Kubernetes Project: ${{ steps.analyze.outputs.k8s_project }}"
+          echo "   Source Repository: ${{ steps.analyze.outputs.git_url }}"
+          echo "   Dockerfile Path: ${{ steps.analyze.outputs.dockerfile_path }}"
+          echo "   Application Port: ${{ steps.analyze.outputs.port }}"
+          echo ""
+          echo "🐳 Docker Image Details:"
+          echo "   Image Name: ${{ steps.analyze.outputs.image_name }}"
+          echo "   Image Tag: ${{ steps.analyze.outputs.image_tag }}"
+          echo "   Full Image: ${{ steps.analyze.outputs.full_image_name }}"
+          echo ""
+          echo "🔗 Registry URL:"
+          echo "   https://console.cloud.google.com/artifacts/docker/appointy-global/europe-west1/common/${{ steps.analyze.outputs.app_name }}"
+          echo ""
+          echo "🚀 Frontend application image is ready for deployment!"
