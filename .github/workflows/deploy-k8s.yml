@@ -16,6 +16,11 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
 jobs:
   analyze-and-deploy:
     runs-on: ubuntu-latest
@@ -24,7 +29,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
 
       - name: Analyze Backstage Template Fields
@@ -117,10 +122,23 @@ jobs:
           echo "Generated deployment.yaml:"
           cat app-of-apps/deployment.yaml
 
+      - name: Validate Generated YAML
+        run: |
+          # Install kubectl for YAML validation
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          
+          # Validate the YAML syntax
+          kubectl apply --dry-run=client -f app-of-apps/deployment.yaml
+          echo "✅ YAML validation passed"
+
       - name: Create Pull Request
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           commit-message: |
             feat: add deployment for ${{ steps.analyze.outputs.deployment_name }}
             
@@ -159,6 +177,8 @@ jobs:
           delete-branch: true
           draft: false
           base: main
+          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
 
       - name: Summary
         run: |
