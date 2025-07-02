@@ -93,7 +93,7 @@ spec:
           k8s_project: ${{ parameters.k8s_project }}
           git_url: ${{ parameters.git_url }}
           dockerfile_path: ${{ parameters.dockerfile_path }}
-          port: ${{ parameters.port }}
+          port: "${{ parameters.port }}"
 
   output:
     links:
