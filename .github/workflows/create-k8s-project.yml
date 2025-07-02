@@ -84,7 +84,7 @@ jobs:
           EOF
           
           echo "Generated ArgoCD Application manifest:"
-          cat ${{ steps.analyze.outputs.project_path }}/argocd-application.yaml
+          cat multi-apps/${{ steps.analyze.outputs.project_name }}-argocd-application.yaml
 
       - name: Generate Kubernetes Namespace Manifest
         run: |
