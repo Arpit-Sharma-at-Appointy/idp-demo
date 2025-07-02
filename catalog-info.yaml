@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: idp-demo
+  annotations:
+    github.com/project-slug: Arpit-Sharma-at-Appointy/idp-demo
+spec:
+  type: other
+  lifecycle: unknown
+  owner: Arpit-Sharma-at-Appointy
