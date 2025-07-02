@@ -79,6 +79,8 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
 EOF
 
 # Generate service.yaml
