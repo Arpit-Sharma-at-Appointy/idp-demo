@@ -158,7 +158,6 @@ jobs:
           
           # Login to ArgoCD (assuming ArgoCD server URL is set via environment or default)
           # You may need to adjust the server URL based on your setup
-          ARGOCD_SERVER="${ARGOCD_SERVER:-argocd.example.com}"
           
           argocd login $ARGOCD_SERVER \
             --username $ARGOCD_USER \
