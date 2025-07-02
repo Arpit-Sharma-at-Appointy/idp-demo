@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: frontendapp
+  namespace: web-app
+spec:
+  hosts:
+  - frontendapp.idp.appointy.com
+  gateways:
+  - istio-system/gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+  - route:
+    - destination:
+        host: frontendapp
+        port:
+          number: 80
