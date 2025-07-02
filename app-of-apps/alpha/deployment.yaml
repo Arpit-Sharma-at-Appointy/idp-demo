@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alpha-frontend
+  namespace: alpha
+  labels:
+    app: alpha-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alpha-frontend
+  template:
+    metadata:
+      labels:
+        app: alpha-frontend
+    spec:
+      containers:
+      - name: alpha-frontend
+        image: europe-west1-docker.pkg.dev/appointy-global/common/alpha-frontend:v7
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
