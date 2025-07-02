@@ -355,7 +355,7 @@ jobs:
           echo "Waiting for auto-merge to complete..."
           MERGED=false
           
-          for i in {1..12}; do  # Wait up to 6 minutes (30s * 12)
+          for i in {1..2}; do  # Wait up to 6 minutes (30s * 12)
             # Check if PR is merged
             if gh pr view $PR_NUMBER --json state | grep -q "MERGED"; then
               echo "✅ PR #$PR_NUMBER has been merged successfully"
