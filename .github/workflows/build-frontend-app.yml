@@ -197,8 +197,8 @@ jobs:
           
           # Deployment configuration
           DEPLOYMENT_NAME=${{ steps.analyze.outputs.app_name }}
-          IMAGE_NAME=${{ steps.analyze.outputs.full_image_name }}
-          IMAGE_TAG=${{ steps.analyze.outputs.image_tag }}
+          IMAGE_NAME="europe-west1-docker.pkg.dev/appointy-global/common/${{ github.event.inputs.app_name }}"
+          IMAGE_TAG="v${{ github.run_number }}"
           PORT=${{ steps.analyze.outputs.port }}
           NAMESPACE=${{ steps.analyze.outputs.k8s_project }}
           
