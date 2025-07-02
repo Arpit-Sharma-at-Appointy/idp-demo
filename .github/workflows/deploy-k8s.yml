@@ -18,7 +18,8 @@ on:
       replica:
         description: 'Replica Count'
         required: true
-        type: string
+        type: number
+        default: 3
 
 jobs:
   analyze-and-deploy:
@@ -46,9 +47,9 @@ jobs:
             exit 1
           fi
           
-          # Validate replica count is a positive integer
-          if ! [[ "${{ github.event.inputs.replica }}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "Error: Replica count must be a positive integer"
+          # Validate replica count is a positive number
+          if (( ${{ github.event.inputs.replica }} < 1 )); then
+            echo "Error: Replica count must be a positive number"
             exit 1
           fi
           
