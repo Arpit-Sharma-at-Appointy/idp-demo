@@ -178,7 +178,7 @@ jobs:
           git checkout -b ${{ steps.analyze.outputs.branch_name }}
           
           # Add all generated files
-          git add ${{ steps.analyze.outputs.project_path }}/
+          git add ${{ steps.analyze.outputs.project_path }}/ multi-apps/
           
           # Commit changes
           git commit -m "feat: create Kubernetes project ${{ steps.analyze.outputs.project_name }}
