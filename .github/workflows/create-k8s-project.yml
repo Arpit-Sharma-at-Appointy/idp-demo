@@ -1,0 +1,342 @@
+name: Create Kubernetes Project
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Project Name'
+        required: true
+        type: string
+      unique_id:
+        description: 'Unique Identifier'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  create-k8s-project:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate and Analyze Input Parameters
+        id: analyze
+        run: |
+          echo "=== Analyzing Project Parameters ==="
+          echo "Project Name: ${{ github.event.inputs.project_name }}"
+          echo "Unique ID: ${{ github.event.inputs.unique_id }}"
+          
+          # Validate project name (Kubernetes namespace naming convention)
+          if [[ ! "${{ github.event.inputs.project_name }}" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
+            echo "Error: Project name must follow Kubernetes naming convention"
+            echo "- Only lowercase letters, numbers, and hyphens"
+            echo "- Cannot start or end with hyphen"
+            echo "- Must be between 1-63 characters"
+            exit 1
+          fi
+          
+          # Check length
+          if [ ${#${{ github.event.inputs.project_name }}} -gt 63 ]; then
+            echo "Error: Project name must be 63 characters or less"
+            exit 1
+          fi
+          
+          # Set outputs
+          echo "project_name=${{ github.event.inputs.project_name }}" >> $GITHUB_OUTPUT
+          echo "unique_id=${{ github.event.inputs.unique_id }}" >> $GITHUB_OUTPUT
+          echo "full_name=${{ github.event.inputs.project_name }}-${{ github.event.inputs.unique_id }}" >> $GITHUB_OUTPUT
+          echo "branch_name=feature/create-project-${{ github.event.inputs.project_name }}-${{ github.event.inputs.unique_id }}" >> $GITHUB_OUTPUT
+          echo "project_path=app-of-apps/${{ github.event.inputs.project_name }}-${{ github.event.inputs.unique_id }}" >> $GITHUB_OUTPUT
+          
+          echo "✅ Validation passed"
+          echo "Full project name: ${{ github.event.inputs.project_name }}-${{ github.event.inputs.unique_id }}"
+
+      - name: Create Project Directory Structure
+        run: |
+          echo "Creating directory structure..."
+          mkdir -p ${{ steps.analyze.outputs.project_path }}
+          echo "✅ Created directory: ${{ steps.analyze.outputs.project_path }}"
+
+      - name: Generate ArgoCD Application Manifest
+        run: |
+          cat > ${{ steps.analyze.outputs.project_path }}/argocd-application.yaml << EOF
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: ${{ steps.analyze.outputs.full_name }}
+            namespace: argocd
+            labels:
+              app.kubernetes.io/name: ${{ steps.analyze.outputs.full_name }}
+              app.kubernetes.io/managed-by: backstage-template
+              project: ${{ steps.analyze.outputs.project_name }}
+              created-by: backstage
+            annotations:
+              argocd.argoproj.io/sync-wave: "1"
+          spec:
+            destination:
+              server: https://kubernetes.default.svc
+            source:
+              path: ./${{ steps.analyze.outputs.project_path }}/
+              repoURL: git@github.com:Arpit-Sharma-at-Appointy/idp-demo.git
+              targetRevision: HEAD
+            sources: []
+            project: idp-demo
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: false
+              syncOptions:
+                - CreateNamespace=true
+                - ApplyOutOfSyncOnly=true
+            revisionHistoryLimit: 10
+          EOF
+          
+          echo "Generated ArgoCD Application manifest:"
+          cat ${{ steps.analyze.outputs.project_path }}/argocd-application.yaml
+
+      - name: Generate Kubernetes Namespace Manifest
+        run: |
+          cat > ${{ steps.analyze.outputs.project_path }}/namespace.yaml << EOF
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: ${{ steps.analyze.outputs.full_name }}
+            labels:
+              name: ${{ steps.analyze.outputs.full_name }}
+              project: ${{ steps.analyze.outputs.project_name }}
+              managed-by: backstage-template
+              created-by: backstage
+            annotations:
+              backstage.io/project-name: "${{ steps.analyze.outputs.project_name }}"
+              backstage.io/unique-id: "${{ steps.analyze.outputs.unique_id }}"
+          spec: {}
+          EOF
+          
+          echo "Generated Kubernetes Namespace manifest:"
+          cat ${{ steps.analyze.outputs.project_path }}/namespace.yaml
+
+      - name: Create README for Project
+        run: |
+          cat > ${{ steps.analyze.outputs.project_path }}/README.md << EOF
+          # ${{ steps.analyze.outputs.full_name }}
+          
+          This project was automatically generated by the Backstage Kubernetes Project template.
+          
+          ## Project Details
+          
+          - **Project Name:** \`${{ steps.analyze.outputs.project_name }}\`
+          - **Unique ID:** \`${{ steps.analyze.outputs.unique_id }}\`
+          - **Full Name:** \`${{ steps.analyze.outputs.full_name }}\`
+          - **Created:** \`$(date -u +%Y-%m-%dT%H:%M:%SZ)\`
+          
+          ## Resources Created
+          
+          ### ArgoCD Application
+          - **Name:** \`${{ steps.analyze.outputs.full_name }}\`
+          - **Path:** \`./${{ steps.analyze.outputs.project_path }}/\`
+          - **Auto-sync:** Enabled with prune
+          
+          ### Kubernetes Namespace
+          - **Name:** \`${{ steps.analyze.outputs.full_name }}\`
+          - **Labels:** Project metadata and creation info
+          
+          ## Directory Structure
+          
+          \`\`\`
+          ${{ steps.analyze.outputs.project_path }}/
+          ├── argocd-application.yaml    # ArgoCD Application resource
+          ├── namespace.yaml             # Kubernetes Namespace resource
+          └── README.md                  # This file
+          \`\`\`
+          
+          ## Next Steps
+          
+          1. **Review and merge** the pull request
+          2. **Apply ArgoCD Application** to your cluster:
+             \`\`\`bash
+             kubectl apply -f ${{ steps.analyze.outputs.project_path }}/argocd-application.yaml
+             \`\`\`
+          3. **Verify namespace creation**:
+             \`\`\`bash
+             kubectl get namespace ${{ steps.analyze.outputs.full_name }}
+             \`\`\`
+          4. **Check ArgoCD dashboard** for application status
+          5. **Add your application manifests** to this directory
+          
+          ## Usage
+          
+          Deploy your applications by adding Kubernetes manifests to this directory. ArgoCD will automatically sync them to the \`${{ steps.analyze.outputs.full_name }}\` namespace.
+          
+          Example:
+          \`\`\`bash
+          # Add your deployment files
+          echo "apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: my-app
+            namespace: ${{ steps.analyze.outputs.full_name }}
+          # ... rest of your deployment" > ${{ steps.analyze.outputs.project_path }}/my-app-deployment.yaml
+          \`\`\`
+          
+          ---
+          
+          *Generated by Backstage Template on $(date -u +%Y-%m-%dT%H:%M:%SZ)*
+          EOF
+
+      - name: Validate Generated Manifests
+        run: |
+          echo "Validating generated Kubernetes manifests..."
+          
+          # Install kubectl for validation
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          
+          # Validate namespace manifest
+          kubectl apply --dry-run=client -f ${{ steps.analyze.outputs.project_path }}/namespace.yaml
+          echo "✅ Namespace YAML validation passed"
+          
+          # Validate ArgoCD application manifest (basic YAML syntax)
+          python3 -c "
+          import yaml
+          with open('${{ steps.analyze.outputs.project_path }}/argocd-application.yaml', 'r') as f:
+              yaml.safe_load(f)
+          print('✅ ArgoCD Application YAML syntax validation passed')
+          "
+
+      - name: Create and Push Branch
+        run: |
+          # Create new branch
+          git checkout -b ${{ steps.analyze.outputs.branch_name }}
+          
+          # Add all generated files
+          git add ${{ steps.analyze.outputs.project_path }}/
+          
+          # Commit changes
+          git commit -m "feat: create Kubernetes project ${{ steps.analyze.outputs.full_name }}
+
+          - Project name: ${{ steps.analyze.outputs.project_name }}
+          - Unique ID: ${{ steps.analyze.outputs.unique_id }}
+          - Full name: ${{ steps.analyze.outputs.full_name }}
+          - Generated by: Backstage Template
+          
+          Resources created:
+          - ArgoCD Application: ${{ steps.analyze.outputs.full_name }}
+          - Kubernetes Namespace: ${{ steps.analyze.outputs.full_name }}
+          - Project directory: ${{ steps.analyze.outputs.project_path }}/"
+          
+          # Push branch using PAT
+          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin ${{ steps.analyze.outputs.branch_name }}
+          
+          echo "✅ Branch created and pushed: ${{ steps.analyze.outputs.branch_name }}"
+
+      - name: Create Pull Request with Auto-Merge
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          # Create PR using GitHub CLI
+          PR_URL=$(gh pr create \
+            --title "🚀 Create Kubernetes Project: ${{ steps.analyze.outputs.full_name }}" \
+            --body "## Kubernetes Project Creation Summary
+
+          This PR was automatically generated by the Backstage Kubernetes Project template.
+
+          ### 📋 Project Details
+          - **Project Name:** \`${{ steps.analyze.outputs.project_name }}\`
+          - **Unique ID:** \`${{ steps.analyze.outputs.unique_id }}\`
+          - **Full Name:** \`${{ steps.analyze.outputs.full_name }}\`
+          - **Created:** \`$(date -u +%Y-%m-%dT%H:%M:%SZ)\`
+
+          ### 📦 Resources Created
+
+          #### ArgoCD Application
+          - **Name:** \`${{ steps.analyze.outputs.full_name }}\`
+          - **Namespace:** \`argocd\`
+          - **Source Path:** \`${{ steps.analyze.outputs.project_path }}/\`
+          - **Auto-sync:** ✅ Enabled (prune: true, selfHeal: false)
+          - **Project:** \`idp-demo\`
+
+          #### Kubernetes Namespace
+          - **Name:** \`${{ steps.analyze.outputs.full_name }}\`
+          - **Labels:** Project metadata and creation timestamps
+          - **Annotations:** Backstage project information
+
+          ### 📁 Files Added
+          - \`${{ steps.analyze.outputs.project_path }}/argocd-application.yaml\` - ArgoCD Application manifest
+          - \`${{ steps.analyze.outputs.project_path }}/namespace.yaml\` - Kubernetes Namespace manifest  
+          - \`${{ steps.analyze.outputs.project_path }}/README.md\` - Project documentation
+
+          ### 🔄 Next Steps After Merge
+          1. **Apply ArgoCD Application:**
+             \`\`\`bash
+             kubectl apply -f ${{ steps.analyze.outputs.project_path }}/argocd-application.yaml
+             \`\`\`
+          2. **Verify resources:**
+             \`\`\`bash
+             kubectl get namespace ${{ steps.analyze.outputs.full_name }}
+             kubectl get application ${{ steps.analyze.outputs.full_name }} -n argocd
+             \`\`\`
+          3. **Check ArgoCD dashboard** for sync status
+          4. **Add your application manifests** to \`${{ steps.analyze.outputs.project_path }}/\`
+
+          ### ⚡ Auto-Merge
+          This PR will be **automatically merged** after creation as requested.
+
+          ---
+
+          🤖 *Generated by Backstage Template • $(date -u +%Y-%m-%dT%H:%M:%SZ)*" \
+            --head ${{ steps.analyze.outputs.branch_name }} \
+            --base main)
+          
+          echo "✅ Pull request created: $PR_URL"
+          
+          # Extract PR number from URL
+          PR_NUMBER=$(echo $PR_URL | sed 's/.*\/pull\///')
+          echo "PR Number: $PR_NUMBER"
+          
+          # Enable auto-merge
+          echo "Enabling auto-merge for PR #$PR_NUMBER..."
+          gh pr merge $PR_NUMBER --auto --squash
+          
+          echo "✅ Auto-merge enabled for PR #$PR_NUMBER"
+          echo "PR will be automatically merged when checks pass"
+
+      - name: Summary
+        run: |
+          echo "=== Kubernetes Project Creation Summary ==="
+          echo "✅ Project parameters validated"
+          echo "✅ ArgoCD Application manifest generated"
+          echo "✅ Kubernetes Namespace manifest generated"
+          echo "✅ Project documentation created"
+          echo "✅ All manifests validated successfully"
+          echo "✅ Branch created and pushed"
+          echo "✅ Pull request created with auto-merge enabled"
+          echo ""
+          echo "🎯 Project Details:"
+          echo "   Name: ${{ steps.analyze.outputs.project_name }}"
+          echo "   Unique ID: ${{ steps.analyze.outputs.unique_id }}"
+          echo "   Full Name: ${{ steps.analyze.outputs.full_name }}"
+          echo "   Branch: ${{ steps.analyze.outputs.branch_name }}"
+          echo "   Path: ${{ steps.analyze.outputs.project_path }}/"
+          echo ""
+          echo "🔗 Links:"
+          echo "   Repository: https://github.com/${{ github.repository }}"
+          echo "   Pull Requests: https://github.com/${{ github.repository }}/pulls"
+          echo "   Actions: https://github.com/${{ github.repository }}/actions"
+          echo ""
+          echo "🚀 The PR will be auto-merged and your Kubernetes project will be ready!"

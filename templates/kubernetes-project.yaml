@@ -1,0 +1,75 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-project-template
+  title: Kubernetes Project
+  description: Create a new Kubernetes project with ArgoCD application and namespace
+  tags:
+    - kubernetes
+    - argocd
+    - namespace
+    - gitops
+    - recommended
+spec:
+  owner: platform-team
+  type: service
+  
+  parameters:
+    - title: Project Configuration
+      required:
+        - project_name
+      properties:
+        project_name:
+          title: Project Name
+          type: string
+          description: Name of the Kubernetes project (will be used for namespace and ArgoCD app)
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+          ui:help: 'Must follow Kubernetes naming convention: lowercase letters, numbers, and hyphens only. Cannot start or end with hyphen. Max 63 characters.'
+          examples:
+            - my-web-app
+            - data-processing
+            - user-service
+            - payment-gateway
+
+  steps:
+    - id: generate-unique-id
+      name: Generate Unique Identifier
+      action: roadiehq:utils:json:yaml:parse
+      input:
+        data: |
+          unique_id: ${{ '' | now | date('X') }}
+
+    - id: trigger-github-action
+      name: Create Kubernetes Project
+      action: github:actions:dispatch
+      input:
+        workflowId: create-k8s-project.yml
+        repoUrl: github.com?repo=idp-demo&owner=Arpit-Sharma-at-Appointy
+        branchOrTagName: main
+        workflowInputs:
+          project_name: ${{ parameters.project_name }}
+          unique_id: ${{ steps.generate-unique-id.output.unique_id }}
+
+  output:
+    links:
+      - title: View GitHub Action
+        url: https://github.com/Arpit-Sharma-at-Appointy/idp-demo/actions
+      - title: Repository
+        url: https://github.com/Arpit-Sharma-at-Appointy/idp-demo
+      - title: ArgoCD Application
+        url: https://argocd.example.com/applications/${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}
+    text:
+      - title: Project Details
+        content: |
+          Your Kubernetes project has been created successfully!
+          
+          **Project Name:** ${{ parameters.project_name }}
+          **Unique ID:** ${{ steps.generate-unique-id.output.unique_id }}
+          **Full Name:** ${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}
+          
+          The following resources will be created:
+          - ArgoCD Application: ${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}
+          - Kubernetes Namespace: ${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}
+          - Directory: app-of-apps/${{ parameters.project_name }}-${{ steps.generate-unique-id.output.unique_id }}/
