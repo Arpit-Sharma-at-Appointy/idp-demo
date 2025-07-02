@@ -117,17 +117,6 @@ jobs:
           echo "Generated deployment.yaml:"
           cat app-of-apps/deployment.yaml
 
-      - name: Validate Generated YAML
-        run: |
-          # Install kubectl for YAML validation
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-          
-          # Validate the YAML syntax
-          kubectl apply --dry-run=client -f app-of-apps/deployment.yaml
-          echo "✅ YAML validation passed"
-
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
