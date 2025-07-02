@@ -35,21 +35,6 @@ jobs:
           echo "=== Analyzing Project Parameters ==="
           echo "Project Name: ${{ github.event.inputs.project_name }}"
           
-          # Validate project name (Kubernetes namespace naming convention)
-          if [[ ! "${{ github.event.inputs.project_name }}" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
-            echo "Error: Project name must follow Kubernetes naming convention"
-            echo "- Only lowercase letters, numbers, and hyphens"
-            echo "- Cannot start or end with hyphen"
-            echo "- Must be between 1-63 characters"
-            exit 1
-          fi
-          
-          # Check length
-          if [ ${#${{ github.event.inputs.project_name }}} -gt 63 ]; then
-            echo "Error: Project name must be 63 characters or less"
-            exit 1
-          fi
-          
           # Set outputs (using project name directly)
           echo "project_name=${{ github.event.inputs.project_name }}" >> $GITHUB_OUTPUT
           echo "branch_name=feature/create-project-${{ github.event.inputs.project_name }}-${{ github.run_number }}" >> $GITHUB_OUTPUT
@@ -66,7 +51,7 @@ jobs:
 
       - name: Generate ArgoCD Application Manifest
         run: |
-          cat > ${{ steps.analyze.outputs.project_path }}/argocd-application.yaml << EOF
+          cat > multi-apps/${{ steps.analyze.outputs.project_name }}-argocd-application.yaml << EOF
           apiVersion: argoproj.io/v1alpha1
           kind: Application
           metadata:
@@ -83,7 +68,7 @@ jobs:
             destination:
               server: https://kubernetes.default.svc
             source:
-              path: ./${{ steps.analyze.outputs.project_path }}/
+              path: ./app-of-apps/
               repoURL: git@github.com:Arpit-Sharma-at-Appointy/idp-demo.git
               targetRevision: HEAD
             sources: []
