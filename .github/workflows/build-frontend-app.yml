@@ -369,6 +369,8 @@ jobs:
               echo "PR URL: $PR_URL"
             fi
           fi
+
+      - name: Summary
         run: |
           echo "=== Frontend Application Build Summary ==="
           echo "✅ Application parameters validated"
