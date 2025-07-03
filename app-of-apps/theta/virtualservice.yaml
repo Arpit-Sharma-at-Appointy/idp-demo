@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: theta-web
+  namespace: theta
+spec:
+  hosts:
+  - theta-web.idp.appointy.com
+  gateways:
+  - istio-system/gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: theta-web
+        port:
+          number: 80
