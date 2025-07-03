@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: delta
+  labels:
+    name: delta
+    project: delta
+    managed-by: backstage-template
+    created-by: backstage
+  annotations:
+    backstage.io/project-name: "delta"
+spec: {}
