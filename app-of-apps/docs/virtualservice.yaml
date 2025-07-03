@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: docs
+  namespace: docs
+spec:
+  hosts:
+  - docs.idp.saastack.io
+  gateways:
+  - istio-system/gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: docs
+        port:
+          number: 3000
