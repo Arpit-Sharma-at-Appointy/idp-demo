@@ -112,7 +112,7 @@ metadata:
   namespace: $NAMESPACE
 spec:
   hosts:
-  - ${DEPLOYMENT_NAME}.idp.appointy.com
+  - ${DEPLOYMENT_NAME}.idp.saastack.io
   gateways:
   - istio-system/gateway
   http:

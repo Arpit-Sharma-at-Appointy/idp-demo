@@ -99,7 +99,27 @@ jobs:
       - name: Checkout Application Source Code
         run: |
           echo "Cloning application repository..."
-          git clone ${{ steps.analyze.outputs.git_url }} ./app-source
+          
+          # Check if repository is private by attempting to clone without authentication
+          REPO_URL="${{ steps.analyze.outputs.git_url }}"
+          
+          # Try to clone without authentication first
+          echo "Testing repository accessibility..."
+          if git ls-remote "$REPO_URL" HEAD &>/dev/null; then
+            echo "Repository is public - cloning without authentication"
+            git clone "$REPO_URL" ./app-source
+          else
+            echo "Repository appears to be private - using PAT_TOKEN for authentication"
+            
+            # Convert HTTPS URL to authenticated URL
+            # Extract owner and repo from URL
+            REPO_PATH=$(echo "$REPO_URL" | sed 's|https://github.com/||' | sed 's|\.git$||')
+            AUTH_URL="https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${REPO_PATH}.git"
+            
+            echo "Cloning with authentication..."
+            git clone "$AUTH_URL" ./app-source
+          fi
+          
           cd ./app-source
           
           # Show repository info
