@@ -49,7 +49,7 @@ jobs:
           mkdir -p ${{ steps.analyze.outputs.project_path }}
           echo "✅ Created directory: ${{ steps.analyze.outputs.project_path }}"
 
-      - name: Generate Kubernetes Namespace Manifest
+      - name: Generate Kubernetes Namespace and Secret Manifest
         run: |
           cat > ${{ steps.analyze.outputs.project_path }}/namespace.yaml << EOF
           apiVersion: v1
@@ -68,6 +68,35 @@ jobs:
           
           echo "Generated Kubernetes Namespace manifest:"
           cat ${{ steps.analyze.outputs.project_path }}/namespace.yaml
+
+          cat > ${{ steps.analyze.outputs.project_path }}/artifact-registry.yaml << EOF
+          apiVersion: external-secrets.io/v1
+          kind: ExternalSecret
+          metadata:
+            name: artifact-registry
+            namespace: ${{ steps.analyze.outputs.project_name }}
+          spec:
+            refreshInterval: 1m
+            secretStoreRef:
+              name: gcp-store
+              kind: ClusterSecretStore
+            target:
+              template:
+                type: kubernetes.io/dockerconfigjson
+                data:
+                  .dockerconfigjson: "{{ .mysecret | toString }}"
+              name: artifact-registry
+              creationPolicy: Owner
+            data:
+            - secretKey: mysecret
+              remoteRef:
+                key: artifactory-registry-sa-json
+          EOF
+          
+          echo "Generated Kubernetes Namespace manifest:"
+          cat ${{ steps.analyze.outputs.project_path }}/namespace.yaml
+          cat ${{ steps.analyze.outputs.project_path }}/artifact-registry.yaml
+
 
       - name: Create README for Project
         run: |
