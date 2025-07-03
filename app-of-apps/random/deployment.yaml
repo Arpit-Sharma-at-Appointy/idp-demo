@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: random-web
+  namespace: random
+  labels:
+    app: random-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: random-web
+  template:
+    metadata:
+      labels:
+        app: random-web
+    spec:
+      containers:
+      - name: random-web
+        image: europe-west1-docker.pkg.dev/appointy-global/common/random-web:v15
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
