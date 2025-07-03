@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: theta-web
+  namespace: theta
+  labels:
+    app: theta-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: theta-web
+  template:
+    metadata:
+      labels:
+        app: theta-web
+    spec:
+      containers:
+      - name: theta-web
+        image: europe-west1-docker.pkg.dev/appointy-global/common/theta-web:v12
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
