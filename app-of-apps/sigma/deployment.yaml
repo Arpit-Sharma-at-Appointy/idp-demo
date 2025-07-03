@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: signa-fe
+  namespace: sigma
+  labels:
+    app: signa-fe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: signa-fe
+  template:
+    metadata:
+      labels:
+        app: signa-fe
+    spec:
+      containers:
+      - name: signa-fe
+        image: europe-west1-docker.pkg.dev/appointy-global/common/signa-fe:v11
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
