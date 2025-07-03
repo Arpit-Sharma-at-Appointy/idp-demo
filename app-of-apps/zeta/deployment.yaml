@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zeta-web
+  namespace: zeta
+  labels:
+    app: zeta-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zeta-web
+  template:
+    metadata:
+      labels:
+        app: zeta-web
+    spec:
+      containers:
+      - name: zeta-web
+        image: europe-west1-docker.pkg.dev/appointy-global/common/zeta-web:v13
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
