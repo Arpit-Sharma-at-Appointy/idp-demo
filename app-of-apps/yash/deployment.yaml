@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yash-web
+  namespace: yash
+  labels:
+    app: yash-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yash-web
+  template:
+    metadata:
+      labels:
+        app: yash-web
+    spec:
+      containers:
+      - name: yash-web
+        image: europe-west1-docker.pkg.dev/appointy-global/common/yash-web:v14
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
