@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nemesh-web
+  namespace: nemesh
+  labels:
+    app: nemesh-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nemesh-web
+  template:
+    metadata:
+      labels:
+        app: nemesh-web
+    spec:
+      containers:
+      - name: nemesh-web
+        image: europe-west1-docker.pkg.dev/appointy-global/common/nemesh-web:v17
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      imagePullSecrets:
+      - name: artifact-registry
